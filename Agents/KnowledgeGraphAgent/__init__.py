@@ -1,12 +1,3 @@
-from langchain_openai import ChatOpenAI
-from utils.env_utils import SILICONFLOW_BASE_URL, SILICONFLOW_API_KEY
-
-model = ChatOpenAI(
-    model="deepseek-ai/DeepSeek-V3",
-    base_url=SILICONFLOW_BASE_URL,
-    api_key=SILICONFLOW_API_KEY,
-)
-
 agent_role_and_goal = """
 你是知识图谱用例方面的专家。你的主要目标是帮助用户提出一个知识图谱用例。
 """

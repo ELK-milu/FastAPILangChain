@@ -134,16 +134,18 @@ NEO4J_PASSWORD=your_password
 ```
 
 通过 `utils/env_utils.py` 加载环境变量：
+
 ```python
-from utils.env_utils import SILICONFLOW_API_KEY, NEO4J_URI
+from utils.langgraph.env_utils import SILICONFLOW_API_KEY, NEO4J_URI
 ```
 
 ### Model Integration Pattern
 
 标准的模型初始化模式（使用 SiliconFlow 作为 OpenAI 兼容端点）：
+
 ```python
 from langchain_openai import ChatOpenAI
-from utils.env_utils import SILICONFLOW_BASE_URL, SILICONFLOW_API_KEY
+from utils.langgraph.env_utils import SILICONFLOW_BASE_URL, SILICONFLOW_API_KEY
 
 model = ChatOpenAI(
     base_url=SILICONFLOW_BASE_URL,

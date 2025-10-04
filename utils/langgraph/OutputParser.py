@@ -180,6 +180,78 @@ def run_workflow_with_approval(
     return result, agent_responses, tool_responses
 
 
+def _process_stream_messages(stream, agent_responses: List[str], tool_responses: List[str], debug: bool):
+    """处理流式消息的辅助函数"""
+    for chunk in stream:
+        message_chunk, metadata = chunk
+        node_name = metadata.get('langgraph_node', 'unknown')
+
+        if debug:
+            print(f"[DEBUG][{node_name}] {message_chunk}")
+
+        if hasattr(message_chunk, 'content') and message_chunk.content:
+            if node_name == 'agent':
+                agent_responses.append(message_chunk.content)
+                if debug:
+                    print(f"🤖 Agent: {message_chunk.content}")
+            elif node_name == 'tools':
+                tool_responses.append(message_chunk.content)
+                if debug:
+                    print(f"🔧 Tool: {message_chunk.content}")
+
+
+def _display_approval_request(interrupt_info: Dict[str, Any]):
+    """显示审批请求信息"""
+    print(f"\n📋 审批请求:")
+    print(f"   问题: {interrupt_info.get('question', '需要审批')}")
+
+    if 'tool_calls' in interrupt_info:
+        print(f"\n🔧 待执行的工具调用:")
+        for i, tc in enumerate(interrupt_info['tool_calls'], 1):
+            print(f"   {i}. 工具: {tc.get('tool_name', 'unknown')}")
+            args = tc.get('arguments', {})
+            for key, value in args.items():
+                value_str = str(value)[:100] + ("..." if len(str(value)) > 100 else "")
+                print(f"      - {key}: {value_str}")
+
+    if 'tool_results' in interrupt_info:
+        print(f"\n📊 工具执行结果:")
+        for i, tr in enumerate(interrupt_info['tool_results'], 1):
+            print(f"   {i}. 工具: {tr.get('tool_name', 'unknown')}")
+            result_str = str(tr.get('result', 'N/A'))[:100] + ("..." if len(str(tr.get('result', 'N/A'))) > 100 else "")
+            print(f"      结果: {result_str}")
+
+    other_info = {k: v for k, v in interrupt_info.items()
+                  if k not in ['question', 'tool_calls', 'tool_results', 'state_summary']}
+    if other_info:
+        print(f"\n📝 其他信息:")
+        for key, value in other_info.items():
+            value_str = str(value)[:200] + ("..." if len(str(value)) > 200 else "")
+            print(f"   {key}: {value_str}")
+
+
+def _get_user_approval(auto_approve: bool) -> bool:
+    """获取用户审批决策"""
+    print("\n" + "-" * 60)
+    if auto_approve:
+        print("🤖 自动批准模式: 已批准")
+        return True
+    else:
+        user_input = input("❓ 是否批准? (y/n): ").strip().lower()
+        return user_input in ['y', 'yes', '是']
+
+
+def _check_interrupt(state) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    """检查是否有中断任务"""
+    if not state.tasks:
+        return False, None
+
+    for task in state.tasks:
+        if hasattr(task, 'interrupts') and task.interrupts:
+            return True, task.interrupts[0].value
+    return False, None
+
+
 def run_workflow_with_approval_streaming(
         graph,
         inputs: Dict[str, Any],
@@ -212,31 +284,14 @@ def run_workflow_with_approval_streaming(
     print("🚀 开始运行工作流（流式模式）")
     print("=" * 60)
 
-    # 第一次执行 - 流式处理
     if debug:
         print(f"\n📥 初始输入: {inputs}")
 
+    # 第一次执行
     if collect_messages:
         print("\n📨 开始收集消息...")
         stream = graph.stream(inputs, config=config, stream_mode="messages")
-
-        for chunk in stream:
-            message_chunk, metadata = chunk
-            node_name = metadata.get('langgraph_node', 'unknown')
-
-            if debug:
-                print(f"[DEBUG][{node_name}] {message_chunk}")
-
-            # 收集响应
-            if hasattr(message_chunk, 'content') and message_chunk.content:
-                if node_name == 'agent':
-                    agent_responses.append(message_chunk.content)
-                    if debug:
-                        print(f"🤖 Agent: {message_chunk.content}")
-                elif node_name == 'tools':
-                    tool_responses.append(message_chunk.content)
-                    if debug:
-                        print(f"🔧 Tool: {message_chunk.content}")
+        _process_stream_messages(stream, agent_responses, tool_responses, debug)
     else:
         graph.invoke(inputs, config=config)
 
@@ -246,32 +301,19 @@ def run_workflow_with_approval_streaming(
 
     while iteration < max_iterations:
         iteration += 1
-
-        # 获取当前状态
         state = graph.get_state(config)
 
         if debug:
-            print(f"\n🔍 迭代 {iteration}:")
-            print(f"   next: {state.next}")
-            print(f"   tasks数量: {len(state.tasks) if state.tasks else 0}")
+            print(f"\n🔍 迭代 {iteration}: next={state.next}, tasks={len(state.tasks) if state.tasks else 0}")
 
-        # 检查是否还有待执行的节点
+        # 检查是否完成
         if not state.next:
             if debug:
                 print("   ✅ 工作流已完成")
             break
 
-        # 检查是否有中断任务
-        has_interrupt = False
-        interrupt_info = None
-
-        if state.tasks:
-            for task in state.tasks:
-                if hasattr(task, 'interrupts') and task.interrupts:
-                    has_interrupt = True
-                    if task.interrupts:
-                        interrupt_info = task.interrupts[0].value
-                    break
+        # 检查中断
+        has_interrupt, interrupt_info = _check_interrupt(state)
 
         if not has_interrupt:
             if debug:
@@ -279,117 +321,29 @@ def run_workflow_with_approval_streaming(
 
             if collect_messages:
                 stream = graph.stream(None, config=config, stream_mode="messages")
-                for chunk in stream:
-                    message_chunk, metadata = chunk
-                    node_name = metadata.get('langgraph_node', 'unknown')
-
-                    if debug:
-                        print(f"[DEBUG][{node_name}] {message_chunk}")
-
-                    if hasattr(message_chunk, 'content') and message_chunk.content:
-                        if node_name == 'agent':
-                            agent_responses.append(message_chunk.content)
-                            if debug:
-                                print(f"🤖 Agent: {message_chunk.content}")
-                        elif node_name == 'tools':
-                            tool_responses.append(message_chunk.content)
-                            if debug:
-                                print(f"🔧 Tool: {message_chunk.content}")
+                _process_stream_messages(stream, agent_responses, tool_responses, debug)
             else:
                 graph.invoke(None, config=config)
             continue
 
-        # 处理中断（与 run_workflow_with_approval 相同的逻辑）
+        # 处理人工审批
         print("\n" + "-" * 60)
         print(f"⏸️  工作流需要人工审批 (第 {iteration} 次)")
         print("-" * 60)
 
         if interrupt_info:
-            print(f"\n📋 审批请求:")
-            print(f"   问题: {interrupt_info.get('question', '需要审批')}")
+            _display_approval_request(interrupt_info)
 
-            if 'tool_calls' in interrupt_info:
-                print(f"\n🔧 待执行的工具调用:")
-                for i, tc in enumerate(interrupt_info['tool_calls'], 1):
-                    print(f"   {i}. 工具: {tc.get('tool_name', 'unknown')}")
-                    args = tc.get('arguments', {})
-                    for key, value in args.items():
-                        value_str = str(value)
-                        if len(value_str) > 100:
-                            value_str = value_str[:100] + "..."
-                        print(f"      - {key}: {value_str}")
+        is_approved = _get_user_approval(auto_approve)
+        resume_command = Command(resume=is_approved)
 
-            if 'tool_results' in interrupt_info:
-                print(f"\n📊 工具执行结果:")
-                for i, tr in enumerate(interrupt_info['tool_results'], 1):
-                    print(f"   {i}. 工具: {tr.get('tool_name', 'unknown')}")
-                    result_str = str(tr.get('result', 'N/A'))
-                    if len(result_str) > 100:
-                        result_str = result_str[:100] + "..."
-                    print(f"      结果: {result_str}")
+        print(f"{'✅ 审批通过' if is_approved else '❌ 审批被拒绝'}，继续执行...")
 
-            other_info = {k: v for k, v in interrupt_info.items()
-                          if k not in ['question', 'tool_calls', 'tool_results', 'state_summary']}
-            if other_info:
-                print(f"\n📝 其他信息:")
-                for key, value in other_info.items():
-                    value_str = str(value)
-                    if len(value_str) > 200:
-                        value_str = value_str[:200] + "..."
-                    print(f"   {key}: {value_str}")
-
-        print("\n" + "-" * 60)
-        if auto_approve:
-            is_approved = True
-            print("🤖 自动批准模式: 已批准")
+        if collect_messages:
+            stream = graph.stream(resume_command, config=config, stream_mode="messages")
+            _process_stream_messages(stream, agent_responses, tool_responses, debug)
         else:
-            user_input = input("❓ 是否批准? (y/n): ").strip().lower()
-            is_approved = user_input in ['y', 'yes', '是']
-
-        if is_approved:
-            print("✅ 审批通过，继续执行...")
-            if collect_messages:
-                stream = graph.stream(Command(resume=True), config=config, stream_mode="messages")
-                for chunk in stream:
-                    message_chunk, metadata = chunk
-                    node_name = metadata.get('langgraph_node', 'unknown')
-
-                    if debug:
-                        print(f"[DEBUG][{node_name}] {message_chunk}")
-
-                    if hasattr(message_chunk, 'content') and message_chunk.content:
-                        if node_name == 'agent':
-                            agent_responses.append(message_chunk.content)
-                            if debug:
-                                print(f"🤖 Agent: {message_chunk.content}")
-                        elif node_name == 'tools':
-                            tool_responses.append(message_chunk.content)
-                            if debug:
-                                print(f"🔧 Tool: {message_chunk.content}")
-            else:
-                graph.invoke(Command(resume=True), config=config)
-        else:
-            print("❌ 审批被拒绝，执行拒绝逻辑...")
-            if collect_messages:
-                stream = graph.stream(Command(resume=False), config=config, stream_mode="messages")
-                for chunk in stream:
-                    message_chunk, metadata = chunk
-                    node_name = metadata.get('langgraph_node', 'unknown')
-
-                    if debug:
-                        print(f"[DEBUG][{node_name}] {message_chunk}")
-
-                    if hasattr(message_chunk, 'content') and message_chunk.content:
-                        if node_name == 'agent':
-                            agent_responses.append(message_chunk.content)
-                            if debug:
-                                print(f"🤖 Agent: {message_chunk.content}")
-                        elif node_name == 'tools':
-                            tool_responses.append(message_chunk.content)
-                            if debug:
-                                print(f"🔧 Tool: {message_chunk.content}")
-            else:
-                graph.invoke(Command(resume=False), config=config)
+            graph.invoke(resume_command, config=config)
 
         print("-" * 60 + "\n")
 

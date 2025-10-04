@@ -11,7 +11,6 @@ def HumanApproval(
 ):
     """
     封装人类审批节点
-
     Args:
         state_type: 状态类型
         interrupt_dict: 中断时传递的固定信息字典

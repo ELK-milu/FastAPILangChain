@@ -9,3 +9,4 @@ DEEPSEEK_API_KEY=os.environ.get("DEEPSEEK_API_KEY")
 NEO4J_URI=os.environ.get("NEO4J_URI")
 NEO4J_USERNAME= os.environ.get("NEO4J_USERNAME")
 NEO4J_PASSWORD= os.environ.get("NEO4J_PASSWORD")
+NEO4J_IMPORT_DIR="E:\DockerImages\neo4j\import"
