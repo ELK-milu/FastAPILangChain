@@ -12,6 +12,7 @@ def create_chat_node(model,system_prompt):
             state: AgentState,
             config: RunnableConfig,
     ):
+        print("执行chat_node")
         # 定义prompt提示词
         prompt = system_prompt
         response = model.invoke([prompt] + state["messages"], config)
