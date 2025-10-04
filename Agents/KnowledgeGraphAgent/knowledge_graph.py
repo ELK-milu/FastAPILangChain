@@ -25,6 +25,8 @@ def set_perceived_user_goal(kind_of_graph: str, graph_description: str):
     Args:
         kind_of_graph: 用2-3个词定义图表类型，例如"recent US patents"
         graph_description: 一段描述图表内容的段落，概括用户意图
+    Returns:
+        user_goal_data: 包含kind_of_graph和graph_description的字典
     """
     user_goal_data = {"kind_of_graph": kind_of_graph, "graph_description": graph_description}
     return user_goal_data
