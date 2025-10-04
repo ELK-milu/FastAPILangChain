@@ -6,8 +6,8 @@
 
 ## 关键要点
 
-1. **在工具函数签名中声明 `state` 参数**（注意：这与旧版本不同）
-2. **添加 `needs_state = True` 属性标记**
+1. **在工具函数签名中声明 `state` 参数**
+2. **使用 `@needs_state` 装饰器标记工具**
 3. **直接调用原始函数，绕过 LangChain 的 `invoke` 方法**
 
 ## 完整示例
@@ -15,13 +15,15 @@
 ```python
 from langchain_core.tools import tool
 from langgraph.prebuilt.chat_agent_executor import AgentState
+from utils.langgraph.ToolNode import create_tool_node_with_state, needs_state
 
 # 定义自定义 State 类
 class MyAgentState(AgentState):
     my_custom_field: dict = {"default": "value"}
 
-# 定义需要访问 state 的工具
+# 方法 1: 使用装饰器（推荐）
 @tool(description="需要访问和修改 state 的工具")
+@needs_state
 def my_tool_with_state(user_input: str, state: MyAgentState) -> dict:
     """
     这个工具可以访问和修改 state。
@@ -46,8 +48,12 @@ def my_tool_with_state(user_input: str, state: MyAgentState) -> dict:
         "new_value": state["my_custom_field"]
     }
 
-# 重要：标记工具需要 state
-my_tool_with_state.needs_state = True
+# 方法 2: 定义后调用装饰器
+@tool(description="另一个需要 state 的工具")
+def another_tool(data: str, state: MyAgentState) -> dict:
+    return {"status": "success"}
+
+another_tool = needs_state(another_tool)
 
 # 定义普通工具（不需要 state）
 @tool(description="普通工具")
@@ -109,39 +115,48 @@ my_tool.needs_state = True
 
 ## 常见错误
 
-### ❌ 错误示例 1：不标记 `needs_state`
+### ❌ 错误示例 1：忘记使用 `@needs_state` 装饰器
 
 ```python
 @tool
 def my_tool(user_input: str, state: MyAgentState) -> dict:
     return {"status": "success"}
 
-# 忘记添加这一行
-# my_tool.needs_state = True
+# 忘记添加 @needs_state 装饰器
 ```
 
-结果：工具会通过 `invoke` 调用，导致 Pydantic 验证错误。
+结果：工具会通过 `invoke` 调用，导致 Pydantic 验证错误（`state` 参数被视为必填）。
 
-### ❌ 错误示例 2：使用默认值
+### ❌ 错误示例 2：装饰器顺序错误
+
+```python
+@needs_state  # 错误：应该放在 @tool 之后
+@tool
+def my_tool(user_input: str, state: MyAgentState) -> dict:
+    return {"status": "success"}
+```
+
+结果：`needs_state` 无法正确识别工具。
+
+### ❌ 错误示例 3：尝试给 tool 对象赋值属性
 
 ```python
 @tool
-def my_tool(user_input: str, state: MyAgentState = None) -> dict:
+def my_tool(user_input: str, state: MyAgentState) -> dict:
     return {"status": "success"}
 
-my_tool.needs_state = True
+my_tool.needs_state = True  # 错误：StructuredTool 不允许动态添加属性
 ```
 
-结果：即使有默认值，LangChain 仍然会要求 LLM 提供 `state` 参数。
+结果：`ValueError: "StructuredTool" object has no field "needs_state"`
 
 ### ✅ 正确示例
 
 ```python
 @tool
+@needs_state  # 正确：装饰器放在 @tool 之后
 def my_tool(user_input: str, state: MyAgentState) -> dict:
     return {"status": "success"}
-
-my_tool.needs_state = True  # 必须添加
 ```
 
 ## 实际使用场景
@@ -150,6 +165,7 @@ my_tool.needs_state = True  # 必须添加
 
 ```python
 @tool(description="提议节点构建")
+@needs_state
 def propose_node(label: str, properties: list[str], state: MyState) -> dict:
     # 获取当前计划
     plan = state.get("construction_plan", {})
@@ -161,14 +177,13 @@ def propose_node(label: str, properties: list[str], state: MyState) -> dict:
     state["construction_plan"] = plan
 
     return {"status": "success", "plan": plan}
-
-propose_node.needs_state = True
 ```
 
 ### 场景 2：跨工具共享数据
 
 ```python
 @tool(description="搜索文件")
+@needs_state
 def search_file(file_path: str, query: str, state: MyState) -> dict:
     results = perform_search(file_path, query)
 
@@ -177,17 +192,14 @@ def search_file(file_path: str, query: str, state: MyState) -> dict:
 
     return {"status": "success", "results": results}
 
-search_file.needs_state = True
-
 @tool(description="分析搜索结果")
+@needs_state
 def analyze_results(state: MyState) -> dict:
     # 读取之前的搜索结果
     results = state.get("last_search_results", [])
     analysis = perform_analysis(results)
 
     return {"status": "success", "analysis": analysis}
-
-analyze_results.needs_state = True
 ```
 
 ## 注意事项
@@ -202,7 +214,33 @@ analyze_results.needs_state = True
 | 特性 | 说明 |
 |------|------|
 | **声明方式** | 在函数签名中声明 `state` 参数 |
-| **标记方式** | `tool.needs_state = True` |
+| **标记方式** | `@needs_state` 装饰器（放在 `@tool` 之后） |
 | **调用方式** | 直接调用 `tool.func()` 绕过 Pydantic 验证 |
 | **State 访问** | 读取：`state.get(key)`，写入：`state[key] = value` |
 | **适用场景** | 需要跨工具共享数据、累积构建计划、维护上下文 |
+
+## 实现原理
+
+`@needs_state` 装饰器通过全局集合 `_TOOLS_NEED_STATE` 记录工具函数的 ID：
+
+```python
+# 在 ToolNode.py 中
+_TOOLS_NEED_STATE = set()
+
+def needs_state(tool_func):
+    func_to_mark = getattr(tool_func, 'func', tool_func)
+    _TOOLS_NEED_STATE.add(id(func_to_mark))
+    return tool_func
+```
+
+`create_tool_node_with_state` 在运行时检查工具是否在集合中：
+
+```python
+original_func = tool.func
+tool_needs_state = id(original_func) in _TOOLS_NEED_STATE
+
+if tool_needs_state:
+    tool_result = original_func(**tool_args, state=state)
+else:
+    tool_result = tool.invoke(tool_args)
+```

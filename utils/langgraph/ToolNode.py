@@ -6,6 +6,32 @@ from langchain_core.messages import ToolMessage, AIMessage
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langgraph.types import interrupt, Command
 
+# 用于存储需要 state 的工具函数
+_TOOLS_NEED_STATE = set()
+
+
+def needs_state(tool_func):
+    """
+    装饰器，标记工具函数需要访问 state
+
+    使用方法：
+    @tool(description="工具描述")
+    @needs_state
+    def my_tool(param: str, state: MyState) -> dict:
+        return {"status": "success"}
+
+    或者在定义后调用：
+    @tool(description="工具描述")
+    def my_tool(param: str, state: MyState) -> dict:
+        return {"status": "success"}
+
+    my_tool = needs_state(my_tool)
+    """
+    # 记录原始函数名（在被 @tool 包装前的函数）
+    func_to_mark = getattr(tool_func, 'func', tool_func)
+    _TOOLS_NEED_STATE.add(id(func_to_mark))
+    return tool_func
+
 
 def create_tool_node(tools):
     """
@@ -32,26 +58,67 @@ def create_tool_node(tools):
 def create_tool_node_with_state(tools):
     """
     创建一个可以将 state 传递给工具的工具调用节点
+
+    使用方法：
+    1. 使用 @needs_state 装饰器标记工具
+    2. 在工具函数签名中声明 state 参数
+    3. 工具函数可以读取和修改 state
+
+    示例：
+    @tool(description="需要访问 state 的工具")
+    @needs_state
+    def my_tool(user_input: str, state: MyState) -> dict:
+        old_value = state.get("key")
+        state["key"] = "new_value"
+        return {"status": "success"}
+
+    或者在定义后标记：
+    @tool(description="需要访问 state 的工具")
+    def my_tool(user_input: str, state: MyState) -> dict:
+        return {"status": "success"}
+
+    my_tool = needs_state(my_tool)
+
     :param tools: 工具列表
     """
     tools_by_name = {tool.name: tool for tool in tools}
 
     def tool_node(state: AgentState):
+        print(f"[DEBUG ToolNode] 接收到的 state keys: {list(state.keys())}")
+        print(f"[DEBUG ToolNode] state 内容: {dict(state)}")
+
         outputs = []
         for tool_call in state["messages"][-1].tool_calls:
             tool = tools_by_name[tool_call["name"]]
             tool_args = tool_call["args"]
 
-            # 检查工具是否接受 state 参数
-            tool_signature = inspect.signature(tool.func)
-            if "state" in tool_signature.parameters:
-                # 如果工具签名包含 state 参数,则传递
-                tool_args = {**tool_args, "state": state}
+            # 检查工具是否需要 state（通过全局集合检查）
+            original_func = tool.func
+            tool_needs_state = id(original_func) in _TOOLS_NEED_STATE
 
-            tool_result = tool.invoke(tool_args)
+            if tool_needs_state:
+                # 直接调用底层函数并传入 state
+                # 检查原始函数签名
+                func_signature = inspect.signature(original_func)
+
+                if "state" in func_signature.parameters:
+                    # 从 tool_args 中移除 state（如果 LLM 错误地传递了它）
+                    clean_args = {k: v for k, v in tool_args.items() if k != "state"}
+                    # 如果原始函数接受 state 参数，直接调用并注入真实的 state
+                    tool_result = original_func(**clean_args, state=state)
+                else:
+                    # 如果不接受 state 参数，抛出错误提示
+                    raise ValueError(
+                        f"工具 {tool.name} 被标记为 needs_state，但函数签名中没有 state 参数。"
+                        f"请在函数定义中添加 state 参数：def {original_func.__name__}(..., state: AgentState)"
+                    )
+            else:
+                # 普通工具，使用标准 invoke
+                tool_result = tool.invoke(tool_args)
+
             outputs.append(
                 ToolMessage(
-                    content=json.dumps(tool_result),
+                    content=json.dumps(tool_result, ensure_ascii=False),
                     name=tool_call["name"],
                     tool_call_id=tool_call["id"],
                 )

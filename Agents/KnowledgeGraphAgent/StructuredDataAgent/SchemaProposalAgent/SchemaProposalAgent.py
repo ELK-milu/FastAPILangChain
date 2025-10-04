@@ -4,23 +4,32 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.constants import END
 from langgraph.graph import StateGraph
+from typing import Annotated
+from langgraph.graph import add_messages
 from langgraph.prebuilt.chat_agent_executor import AgentState
 
 from Agents.KnowledgeGraphAgent.StructuredDataAgent.SchemaProposalAgent import proposal_agent_instruction
 from utils.langgraph.ChatNode import create_chat_node
 from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import run_workflow_with_approval_streaming
-from utils.langgraph.ToolNode import create_tool_node_with_state
+from utils.langgraph.ToolNode import create_tool_node_with_state, needs_state
 from utils.models import DeepSeek_V3
 from utils.neo4j import get_neo4j_import_dir
 
 SEARCH_RESULTS = "search_results"
 
 class SchemaProposalAgentState(AgentState):
-    _propose_node_construction_plan :dict = {"test":"usertest"}
+    """
+    自定义 State 类
+
+    注意：继承 AgentState 后，messages 字段已经有了 Reducer
+    自定义字段需要显式在 inputs 中初始化
+    """
+    test_num: int  # 移除默认值，强制在 inputs 中设置
 
 
 @tool(description="复读用户的话")
+@needs_state
 def test_node(user_input: str, state: SchemaProposalAgentState) -> dict:
     """
     复读用户的话，并访问/修改 state。
@@ -36,14 +45,23 @@ def test_node(user_input: str, state: SchemaProposalAgentState) -> dict:
               如果是 'error'，包含 'error_message' 键。
               'error_message' 可能包含关于如何处理错误的说明。
     """
-    # 读取当前的 construction plan
-    construction_plan = state.get("_propose_node_construction_plan", {})
-    print(f"当前 construction plan: {construction_plan}")
+    # 调试：打印完整的 state
+    print(f"\n[DEBUG] 完整 state: {dict(state)}")
+    print(f"[DEBUG] state keys: {list(state.keys())}")
+    print(f"[DEBUG] 'test_num' in state: {'test_num' in state}")
+
+    # 读取当前的 test_num
+    if "test_num" in state:
+        construction_plan = state["test_num"]
+        print(f"[DEBUG] 使用 state['test_num']: {construction_plan} (类型: {type(construction_plan)})")
+    else:
+        construction_plan = state.get("test_num", 0)
+        print(f"[DEBUG] 使用 state.get('test_num', 0): {construction_plan}")
 
     # 修改 state
-    state["_propose_node_construction_plan"] = {"process": user_input}
-    new_construction_plan = state["_propose_node_construction_plan"]
-    print(f"更新后 construction plan: {new_construction_plan}")
+    state["test_num"] = 100
+    new_construction_plan = state["test_num"]
+    print(f"[DEBUG] 更新后 test_num: {new_construction_plan}")
 
     return {
         "status": "success",
@@ -52,9 +70,6 @@ def test_node(user_input: str, state: SchemaProposalAgentState) -> dict:
         "new_plan": new_construction_plan,
         "message": f"复读: {user_input}"
     }
-
-# 标记 test_node 需要 state
-test_node.needs_state = True
 
 tools = [test_node]
 
@@ -93,7 +108,11 @@ checkpointer = InMemorySaver()
 # 编译 workflow
 graph = workflow.compile(checkpointer)
 config = {"configurable": {"thread_id": uuid.uuid4()}}
-inputs = {"messages": [("user", "北京市朝阳区")]}
+# 方案 1：在 inputs 中设置 test_num 的初始值
+inputs = {
+    "messages": [("user", "北京市朝阳区")],
+    "test_num": 10  # 显式设置初始值
+}
 result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
     graph=graph,
     config=config,

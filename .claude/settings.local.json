@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(E:minicondaenvslangchainpython.exe \"E:\\PythonWorks\\FastAPILangChain\\Agents\\KnowledgeGraphAgent\\StructuredDataAgent\\SchemaProposalAgent\\SchemaProposalAgent.py\")",
+      "Bash(/e/miniconda/envs/langchain/python.exe Agents/KnowledgeGraphAgent/StructuredDataAgent/SchemaProposalAgent/SchemaProposalAgent.py)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
