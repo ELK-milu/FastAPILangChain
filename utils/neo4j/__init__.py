@@ -1,8 +1,10 @@
 from pathlib import Path
 
+from langchain_core.tools import tool
+
 from utils.langgraph.env_utils import NEO4J_IMPORT_DIR
 
-DEFAULT_NEO4J_IMPORT_DIR = "E:\DockerImages\neo4j\import"
+DEFAULT_NEO4J_IMPORT_DIR = "E:\\DockerImages\\neo4j\\import"
 def get_neo4j_import_dir() -> Path:
     """
     获取 Neo4j 导入目录路径
@@ -29,3 +31,9 @@ def get_neo4j_import_dir() -> Path:
         print(f"✅ 已创建 Neo4j 导入目录: {import_dir.resolve()}")
 
     return import_dir
+
+
+
+
+if __name__ == "__main__":
+    print(get_neo4j_import_dir())

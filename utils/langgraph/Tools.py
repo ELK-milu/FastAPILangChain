@@ -3,7 +3,7 @@ from langgraph.types import interrupt
 
 
 @tool(description="请求人工审批工具，用于在执行重要操作前获得人类确认。")
-def request_user_approval(
+def get_approved_user_goal(
     operation_description: str,
 ):
     """

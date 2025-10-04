@@ -2,7 +2,7 @@
 测试转换后的 Knowledge Graph Agent
 """
 
-from Agents.KnowledgeGraphAgent.Agent import user_intent_agent, KnowledgeGraphState
+from Agents.KnowledgeGraphAgent.StructuredDataAgent.UserIntentAgent.Agent import user_intent_agent, KnowledgeGraphState
 from langchain_core.messages import HumanMessage
 
 

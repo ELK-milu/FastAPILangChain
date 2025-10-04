@@ -1,4 +1,5 @@
 # 定义工具调用节点
+import inspect
 import json
 from typing import Literal, Dict, Any, Callable, Optional, List
 from langchain_core.messages import ToolMessage, AIMessage
@@ -16,6 +17,38 @@ def create_tool_node(tools):
         outputs = []
         for tool_call in state["messages"][-1].tool_calls:
             tool_result = tools_by_name[tool_call["name"]].invoke(tool_call["args"])
+            outputs.append(
+                ToolMessage(
+                    content=json.dumps(tool_result),
+                    name=tool_call["name"],
+                    tool_call_id=tool_call["id"],
+                )
+            )
+        return {"messages": outputs}
+
+    return tool_node
+
+
+def create_tool_node_with_state(tools):
+    """
+    创建一个可以将 state 传递给工具的工具调用节点
+    :param tools: 工具列表
+    """
+    tools_by_name = {tool.name: tool for tool in tools}
+
+    def tool_node(state: AgentState):
+        outputs = []
+        for tool_call in state["messages"][-1].tool_calls:
+            tool = tools_by_name[tool_call["name"]]
+            tool_args = tool_call["args"]
+
+            # 检查工具是否接受 state 参数
+            tool_signature = inspect.signature(tool.func)
+            if "state" in tool_signature.parameters:
+                # 如果工具签名包含 state 参数,则传递
+                tool_args = {**tool_args, "state": state}
+
+            tool_result = tool.invoke(tool_args)
             outputs.append(
                 ToolMessage(
                     content=json.dumps(tool_result),

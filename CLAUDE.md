@@ -30,7 +30,7 @@ http://127.0.0.1:8000/test-agent
 python test_knowledge_graph_agent.py
 
 # 运行其他 Agent 示例（在 Agents/ 目录中）
-python -m Agents.KnowledgeGraphAgent.Agent
+python -m Agents.UserIntentAgent.Agent
 ```
 
 ## Architecture Overview

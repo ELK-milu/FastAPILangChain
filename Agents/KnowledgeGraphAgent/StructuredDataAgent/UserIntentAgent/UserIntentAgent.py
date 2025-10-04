@@ -4,13 +4,13 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage
 
+from Agents.KnowledgeGraphAgent.StructuredDataAgent.UserIntentAgent import complete_agent_instruction
 from utils.langgraph.ChatNode import create_chat_node
 from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import run_workflow_with_approval_streaming
 from utils.langgraph.ToolNode import create_tool_node
-from utils.langgraph.Tools import request_user_approval
+from utils.langgraph.Tools import get_approved_user_goal
 from utils.models import DeepSeek_V3
 
 PERCEIVED_USER_GOAL = "perceived_user_goal"
@@ -32,30 +32,14 @@ def set_perceived_user_goal(kind_of_graph: str, graph_description: str):
     return user_goal_data
 
 
-tools = [set_perceived_user_goal, request_user_approval]
+tools = [set_perceived_user_goal, get_approved_user_goal]
 
 chat_model = DeepSeek_V3.bind_tools(
     tools
 )
 tool_node = create_tool_node(tools)
 
-system_prompt = SystemMessage(
-    """你是一个知识图谱用例设计助手，帮助用户构思和定义知识图谱的应用场景。
-
-工作流程：
-1. 理解用户需求，分析他们想要构建的知识图谱类型
-2. **必须先调用 request_user_approval 工具**获得人工审批，传入：
-   - operation_description: 操作描述（例如："设定用户目标为BOM图表"）
-3. 如果审批通过（approved=true），再调用 set_perceived_user_goal 工具设定用户目标
-4. 如果审批被拒绝（approved=false），询问用户需要修改哪些方面
-
-注意事项：
-- 必须按顺序调用工具：先 request_user_approval，后 set_perceived_user_goal
-- 审批工具的参数要详细、准确，便于人工判断
-- 如果审批被拒绝，友好地询问用户反馈并重新提出方案
-"""
-)
-call_chat_node = create_chat_node(chat_model, system_prompt)
+call_chat_node = create_chat_node(chat_model, complete_agent_instruction)
 
 workflow = StateGraph(GlobalState)
 workflow.add_node("agent", call_chat_node)
@@ -88,4 +72,3 @@ result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
     debug=False
 )
 
-print(agent_msgs)

@@ -6,7 +6,7 @@ file_suggestion_agent_instruction = """
 只考虑结构化数据文件，如CSV或JSON。
 
 为任务做准备：
-- 使用“get_approved_user_goal”工具获取已批准的用户目标。
+- 使用“get_approved_user_goal”工具获取用户批准。
 
 仔细思考，并重复以下步骤直到完成：
 1. 使用“list_available_files”工具列出可用文件
