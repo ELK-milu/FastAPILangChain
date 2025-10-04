@@ -360,10 +360,12 @@ def run_workflow_with_approval_streaming(
                     if hasattr(message_chunk, 'content') and message_chunk.content:
                         if node_name == 'agent':
                             agent_responses.append(message_chunk.content)
-                            print(f"🤖 Agent: {message_chunk.content}")
+                            if debug:
+                                print(f"🤖 Agent: {message_chunk.content}")
                         elif node_name == 'tools':
                             tool_responses.append(message_chunk.content)
-                            print(f"🔧 Tool: {message_chunk.content}")
+                            if debug:
+                                print(f"🔧 Tool: {message_chunk.content}")
             else:
                 graph.invoke(Command(resume=True), config=config)
         else:
@@ -380,10 +382,12 @@ def run_workflow_with_approval_streaming(
                     if hasattr(message_chunk, 'content') and message_chunk.content:
                         if node_name == 'agent':
                             agent_responses.append(message_chunk.content)
-                            print(f"🤖 Agent: {message_chunk.content}")
+                            if debug:
+                                print(f"🤖 Agent: {message_chunk.content}")
                         elif node_name == 'tools':
                             tool_responses.append(message_chunk.content)
-                            print(f"🔧 Tool: {message_chunk.content}")
+                            if debug:
+                                print(f"🔧 Tool: {message_chunk.content}")
             else:
                 graph.invoke(Command(resume=False), config=config)
 

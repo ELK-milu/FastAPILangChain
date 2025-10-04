@@ -17,6 +17,13 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 - `GET http://127.0.0.1:8000/`
 - `GET http://127.0.0.1:8000/hello/{name}`
 
+### 测试 WebSocket Agent（推荐）
+访问浏览器测试页面：
+```
+http://127.0.0.1:8000/test-agent
+```
+提供可视化界面测试带人工审批的 Knowledge Graph Agent
+
 ### 运行独立 Agent 示例
 ```bash
 # 运行知识图谱 Agent 测试
@@ -37,14 +44,15 @@ python -m Agents.KnowledgeGraphAgent.Agent
 
 ### Directory Structure
 ```
-├── main.py                    # FastAPI 入口点（基础 HTTP 服务器）
+├── main.py                    # FastAPI 入口点（包含 WebSocket 端点）
 ├── utils/                     # 通用工具模块
 │   ├── env_utils.py          # 环境变量加载（.env 配置）
 │   ├── ChatNode.py           # LangGraph Chat 节点工厂
 │   ├── ToolNode.py           # LangGraph Tool 节点工厂（支持人工审批）
 │   ├── HumanApproval.py      # 通用人工审批节点
 │   ├── ConditionNode.py      # 条件路由节点（判断是否继续）
-│   └── OutputParser.py       # 流式输出解析器和工作流运行器
+│   ├── OutputParser.py       # 流式输出解析器和工作流运行器（命令行版）
+│   └── WebSocketApproval.py  # WebSocket 异步审批工作流运行器
 ├── Agents/                    # 生产级 Agent 实现
 │   └── KnowledgeGraphAgent/  # 知识图谱 Agent（Neo4j 集成）
 └── test_*.py                  # 测试文件
@@ -79,10 +87,40 @@ else:
     return Command(goto="rejected_node_name")
 ```
 
-#### 4. 工作流运行器（utils/OutputParser.py）
+#### 4. 工作流运行器
+**命令行版本（utils/OutputParser.py）**：
 - **`run_workflow_with_approval()`** - 自动处理所有中断的工作流运行器
 - **`run_workflow_with_approval_streaming()`** - 流式版本，实时显示消息
 - 支持 `auto_approve=True` 用于测试自动批准所有审批
+- 使用 `input()` 阻塞式交互，仅适合命令行环境
+
+**WebSocket 版本（utils/WebSocketApproval.py）**：
+- **`run_workflow_with_websocket_approval()`** - 通过 WebSocket 进行异步人工审批
+- 双向实时通信：服务器推送审批请求 → 客户端响应决策
+- 支持流式输出、调试模式、自定义消息回调
+- **推荐用于生产环境和 API 集成**
+
+#### 5. WebSocket API 集成（main.py）
+FastAPI WebSocket 端点实现人工审批工作流：
+- **端点**: `ws://127.0.0.1:8000/ws/agent/knowledge-graph`
+- **测试页面**: `http://127.0.0.1:8000/test-agent`
+
+**消息协议**：
+```javascript
+// 客户端 → 服务器
+{"type": "start", "data": {"user_input": "...", "debug": false}}
+{"type": "approval_response", "data": {"approved": true/false}}
+
+// 服务器 → 客户端
+{"type": "workflow_start", "data": {...}}
+{"type": "agent_message", "data": {"content": "..."}}
+{"type": "tool_message", "data": {"content": "..."}}
+{"type": "approval_request", "data": {...}}  // 请求人工审批
+{"type": "approval_result", "data": {...}}
+{"type": "workflow_complete", "data": {...}}
+{"type": "debug", "data": {...}}
+{"type": "error", "data": {"message": "..."}}
+```
 
 ### Environment Configuration
 
@@ -132,14 +170,19 @@ model = ChatOpenAI(
 
 #### `utils/OutputParser.py`
 - `agent_with_tool_stream_parser()` - 解析流式消息并分类（agent 响应 vs tool 响应）
-- `run_workflow_with_approval()` - 自动化处理所有人工审批的工作流运行器
-- `run_workflow_with_approval_streaming()` - 流式版本，实时显示输出
+- `run_workflow_with_approval()` - 自动化处理所有人工审批的工作流运行器（命令行版）
+- `run_workflow_with_approval_streaming()` - 流式版本，实时显示输出（命令行版）
+
+#### `utils/WebSocketApproval.py`
+- `WebSocketApprovalManager` - WebSocket 审批管理器类
+- `run_workflow_with_websocket_approval()` - 异步 WebSocket 工作流运行器
+- 支持双向实时通信、流式消息推送、自定义回调
 
 ### Development Notes
 
 #### 项目不含 requirements.txt
 关键依赖包括：
-- `fastapi`, `uvicorn[standard]`
+- `fastapi`, `uvicorn[standard]`, `websockets`
 - `langchain`, `langchain-openai`, `langchain-neo4j`
 - `langgraph`
 - `pydantic`, `python-dotenv`
