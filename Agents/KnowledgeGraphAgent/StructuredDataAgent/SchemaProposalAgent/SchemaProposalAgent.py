@@ -260,7 +260,7 @@ config = {
 
 # inputs 只包含业务状态数据
 inputs = {
-    "messages": [("user", "北京市朝阳区")],
+    "messages": [("user", "我们可以用哪些文件进行导入？")],
 }
 
 print("\n=== 使用 config['configurable'] 传递全局配置 ===")
