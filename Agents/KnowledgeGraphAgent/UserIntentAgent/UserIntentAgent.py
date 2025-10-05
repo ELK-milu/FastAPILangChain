@@ -5,7 +5,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langchain_core.tools import tool
 
-from Agents.KnowledgeGraphAgent.StructuredDataAgent.UserIntentAgent import complete_agent_instruction
+from Agents.KnowledgeGraphAgent.UserIntentAgent import complete_agent_instruction
 from utils.langgraph.ChatNode import create_chat_node
 from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import run_workflow_with_approval_streaming

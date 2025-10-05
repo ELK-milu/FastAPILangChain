@@ -3,7 +3,7 @@ from langgraph.prebuilt.chat_agent_executor import AgentState
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage
 
-from Agents.KnowledgeGraphAgent.StructuredDataAgent.UserIntentAgent import model
+from Agents.KnowledgeGraphAgent.UserIntentAgent import model
 from utils.langgraph.ChatNode import create_chat_node
 from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import agent_with_tool_stream_parser

@@ -1,22 +1,18 @@
 import uuid
-from pathlib import Path
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.constants import END
 from langgraph.graph import StateGraph
 from langgraph.prebuilt.chat_agent_executor import AgentState
 
-from Agents.KnowledgeGraphAgent.StructuredDataAgent.FileSuggestionAgent.FileSuggestion_Agent import get_approved_files
+from Agents.KnowledgeGraphAgent.FileSuggestionAgent.FileSuggestion_Agent import get_approved_files
 from Agents.KnowledgeGraphAgent.StructuredDataAgent.SchemaProposalAgent import proposal_agent_instruction
 from utils.langgraph.ChatNode import create_chat_node
 from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import run_workflow_with_approval_streaming
-from utils.langgraph.ToolNode import needs_state, create_tool_node, create_tool_node_with_state
+from utils.langgraph.ToolNode import needs_state, create_tool_node_with_state
 from utils.langgraph.Tools import get_approved_user_goal, sample_file, search_file
-from utils.models import DeepSeek_V3, Qwen3_30B_A3B_Instruct_2507, Qwen3_32B
-from utils.neo4j import get_neo4j_import_dir
-
-
+from utils.models import DeepSeek_V3
 
 #  Tool: Propose Node Construction
 

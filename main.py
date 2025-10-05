@@ -40,7 +40,7 @@ async def websocket_knowledge_graph_agent(websocket: WebSocket):
     await websocket.accept()
 
     try:
-        from Agents.KnowledgeGraphAgent.StructuredDataAgent.UserIntentAgent.UserIntentAgent import graph
+        from Agents.KnowledgeGraphAgent.UserIntentAgent.UserIntentAgent import graph
         from utils.WebSocketApproval import run_workflow_with_websocket_approval
 
         approval_manager = None

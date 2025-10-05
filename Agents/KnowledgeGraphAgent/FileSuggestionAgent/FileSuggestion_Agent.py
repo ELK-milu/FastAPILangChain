@@ -1,5 +1,4 @@
 import uuid
-from itertools import islice
 from pathlib import Path
 
 from langchain_core.tools import tool
@@ -8,7 +7,7 @@ from langgraph.constants import END
 from langgraph.graph import StateGraph
 from langgraph.prebuilt.chat_agent_executor import AgentState
 
-from Agents.KnowledgeGraphAgent.StructuredDataAgent.FileSuggestionAgent import file_suggestion_agent_instruction
+from Agents.KnowledgeGraphAgent.FileSuggestionAgent import file_suggestion_agent_instruction
 from utils.langgraph.ChatNode import create_chat_node
 from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import run_workflow_with_approval_streaming
