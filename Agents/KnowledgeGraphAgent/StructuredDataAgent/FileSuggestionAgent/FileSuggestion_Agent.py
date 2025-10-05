@@ -40,7 +40,7 @@ def list_available_files() -> dict:
 SUGGESTED_FILES = "suggested_files"
 
 # 用于存储建议文件的全局状态（简化实现）
-_file_suggestion_state = {}
+_file_suggestion_state = {"approved_files":["test_data.csv"]}
 
 @tool(description="设置建议用于数据导入的文件列表")
 def set_suggested_files(suggest_files: list[str]) -> dict:
@@ -142,11 +142,13 @@ checkpointer = InMemorySaver()
 
 # 编译 workflow
 graph = workflow.compile(checkpointer)
-config = {"configurable": {"thread_id": uuid.uuid4()}}
-inputs = {"messages": [("user", "我们可以使用哪些文件进行导入？")]}
-result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
-    graph=graph,
-    config=config,
-    inputs=inputs,
-    debug=False
-)
+
+if __name__ == "__main__":
+    config = {"configurable": {"thread_id": uuid.uuid4()}}
+    inputs = {"messages": [("user", "我们可以使用哪些文件进行导入？")]}
+    result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
+        graph=graph,
+        config=config,
+        inputs=inputs,
+        debug=False
+    )

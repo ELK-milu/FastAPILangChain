@@ -63,12 +63,15 @@ checkpointer = InMemorySaver()
 
 # 编译 workflow
 graph = workflow.compile(checkpointer)
-config = {"configurable": {"thread_id": uuid.uuid4()}}
-inputs = {"messages": [("user", "I'd like a bill of materials graph (BOM graph) which includes all levels from suppliers to finished product, which can support root-cause analysis.")]}
-result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
-    graph=graph,
-    config=config,
-    inputs=inputs,
-    debug=False
-)
+
+if __name__ == "__main__":
+
+    config = {"configurable": {"thread_id": uuid.uuid4()}}
+    inputs = {"messages": [("user", "I'd like a bill of materials graph (BOM graph) which includes all levels from suppliers to finished product, which can support root-cause analysis.")]}
+    result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
+        graph=graph,
+        config=config,
+        inputs=inputs,
+        debug=False
+    )
 

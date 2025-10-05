@@ -13,7 +13,7 @@ from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import run_workflow_with_approval_streaming
 from utils.langgraph.ToolNode import needs_state, create_tool_node, create_tool_node_with_state
 from utils.langgraph.Tools import get_approved_user_goal, sample_file, search_file
-from utils.models import DeepSeek_V3
+from utils.models import DeepSeek_V3, Qwen3_30B_A3B_Instruct_2507, Qwen3_32B
 from utils.neo4j import get_neo4j_import_dir
 
 
@@ -44,13 +44,13 @@ def propose_node_construction(approved_file: str, proposed_label: str, unique_co
     - unique_column_name: 将用于唯一标识构建节点的列名
     - properties: 节点的属性名称列表，源自已批准文件中的列名
 
-    参数:
+    Args:
         approved_file: 要提议节点构建的已批准文件
         proposed_label: 构建节点的提议标签（用作构建计划中的键）
         unique_column_name: 将用于唯一标识构建节点的列名
         proposed_properties: 应导入为节点属性的列名列表
 
-    返回:
+    Return:
         dict: 包含内容元数据的字典。
               包含 'status' 键（'success' 或 'error'）。
               如果是 'success'，包含 'node_construction' 键以及节点的构建计划。
@@ -58,7 +58,11 @@ def propose_node_construction(approved_file: str, proposed_label: str, unique_co
               'error_message' 可能包含关于如何处理错误的说明。
     """
     # 快速健全性检查 -- 已批准的文件是否有唯一列？
-    search_results = search_file(approved_file, unique_column_name)
+    search_results = search_file.invoke(
+        {
+            "file_path": approved_file,
+            "query": unique_column_name
+        })
     if search_results["status"] == "error":
         return search_results # return the error
     if search_results["search_results"]["metadata"]["lines_found"] == 0:
@@ -91,7 +95,7 @@ def propose_relationship_construction(approved_file: str, proposed_relationship_
     为已批准文件提出一种关系构建方案，以支持用户目标。
     该构建方案将被添加到提议的构建计划字典中，使用 proposed_relationship_type 作为键。
 
-    参数:
+    Args:
         approved_file: 需要为其提出节点构建方案的已批准文件
         proposed_relationship_type: 为构建的关系提议的标签名称
         from_node_label: 源节点的标签
@@ -100,7 +104,7 @@ def propose_relationship_construction(approved_file: str, proposed_relationship_
         to_node_column: 已批准文件中用于唯一标识目标节点的列名
         unique_column_name: 用于唯一标识目标节点的列名
 
-    返回:
+    Return:
         dict: 包含内容元数据的字典。
                 包含'status'键（值为'success'或'error'）。
                 若状态为'success'，则包含"relationship_construction"键，其中存储关系构建计划
@@ -142,11 +146,11 @@ def propose_relationship_construction(approved_file: str, proposed_relationship_
 def remove_node_construction(node_label: str, state:SchemaProposalAgentState) -> dict:
     """根据标签从提议的构建计划中移除节点构建方案。
 
-    参数:
+    Args:
         node_label: 要移除的节点构建方案对应的标签
         tool_context: 工具上下文信息
 
-    返回:
+    Return:
         dict: 包含操作元数据的字典。
                 包含'status'键（值为'success'或'error'）。
                 若状态为'success'，则包含'node_construction_removed'键，其值为被移除的节点构建方案的标签
@@ -251,25 +255,26 @@ checkpointer = InMemorySaver()
 # 编译 workflow
 graph = workflow.compile(checkpointer)
 
-# 使用 config["configurable"] 传递全局配置（推荐方案）
-config = {
-    "configurable": {
-        "thread_id": uuid.uuid4(),
+if __name__ == "__main__":
+    # 使用 config["configurable"] 传递全局配置（推荐方案）
+    config = {
+        "configurable": {
+            "thread_id": uuid.uuid4(),
+        }
     }
-}
 
-# inputs 只包含业务状态数据
-inputs = {
-    "messages": [("user", "我们可以用哪些文件进行导入？")],
-}
+    # inputs 只包含业务状态数据
+    inputs = {
+        "messages": [("user", "How can these files be imported?")],
+    }
 
-print("\n=== 使用 config['configurable'] 传递全局配置 ===")
-print(f"全局配置: {config['configurable']}")
-print(f"业务输入: {inputs}\n")
+    print("\n=== 使用 config['configurable'] 传递全局配置 ===")
+    print(f"全局配置: {config['configurable']}")
+    print(f"业务输入: {inputs}\n")
 
-result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
-    graph=graph,
-    config=config,
-    inputs=inputs,
-    debug=False
-)
+    result, agent_msgs, tool_msgs = run_workflow_with_approval_streaming(
+        graph=graph,
+        config=config,
+        inputs=inputs,
+        debug=False
+    )

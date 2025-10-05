@@ -7,18 +7,18 @@ from langgraph.types import interrupt
 from utils.neo4j import get_neo4j_import_dir
 
 SEARCH_RESULTS = "search_results"
-@tool(description="为已批准的文件提议关系构建方案以支持用户目标")
+@tool(description="为已批准的文件提议关系构建方案以支持用户目标。在任意文本文中搜索包含指定查询字符串的行。类似 grep 的简单功能，适用于任何文本文件。")
 def search_file(file_path: str, query: str) -> dict:
     """
     在任意文本文件（markdown、csv、txt）中搜索包含指定查询字符串的行。
     类似 grep 的简单功能，适用于任何文本文件。
     搜索始终不区分大小写。
 
-    参数:
+    Args:
       file_path: 文件路径，相对于 Neo4j 导入目录。
       query: 要搜索的字符串。
 
-    返回:
+    Return:
         dict: 包含 'status'（'success' 或 'error'）的字典。
               如果是 'success'，包含 'search_results'，其中包含 'matching_lines'
               （包含 'line_number' 和 'content' 键的字典列表）
@@ -151,3 +151,8 @@ def get_approved_user_goal(
         print(f"❌ 人工审批被拒绝: {operation_description}")
 
     return result
+
+
+if __name__ == "__main__":
+    result = search_file("test_data.csv","id")
+    print(result)
