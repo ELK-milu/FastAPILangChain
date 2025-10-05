@@ -83,10 +83,7 @@ def create_tool_node_with_state(tools):
     """
     tools_by_name = {tool.name: tool for tool in tools}
 
-    def tool_node(state: AgentState):
-        print(f"[DEBUG ToolNode] 接收到的 state keys: {list(state.keys())}")
-        print(f"[DEBUG ToolNode] state 内容: {dict(state)}")
-
+    def tool_node(state):
         outputs = []
         for tool_call in state["messages"][-1].tool_calls:
             tool = tools_by_name[tool_call["name"]]
@@ -123,7 +120,21 @@ def create_tool_node_with_state(tools):
                     tool_call_id=tool_call["id"],
                 )
             )
-        return {"messages": outputs}
+
+        # 构建返回值：包含 messages 和所有被修改的自定义字段
+        result = {"messages": outputs}
+
+        # LangGraph 管理字段列表（这些字段由 LangGraph 自动管理，节点不应返回）
+        MANAGED_FIELDS = {"remaining_steps", "is_last_step"}
+
+        # 将 state 中除了 messages 和管理字段之外的所有字段都返回
+        # 这样可以保留工具函数对 state 的修改
+        for key in state.keys():
+            if key != "messages" and key not in MANAGED_FIELDS:
+                result[key] = state[key]
+
+        print(f"[DEBUG ToolNode] 返回值 keys: {list(result.keys())}")
+        return result
 
     return tool_node
 

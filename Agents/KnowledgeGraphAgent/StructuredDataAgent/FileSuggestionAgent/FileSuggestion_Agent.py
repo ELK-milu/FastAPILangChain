@@ -13,7 +13,7 @@ from utils.langgraph.ChatNode import create_chat_node
 from utils.langgraph.ConditionNode import should_continue
 from utils.langgraph.OutputParser import run_workflow_with_approval_streaming
 from utils.langgraph.ToolNode import create_tool_node
-from utils.langgraph.Tools import get_approved_user_goal
+from utils.langgraph.Tools import get_approved_user_goal, sample_file
 from utils.models import DeepSeek_V3
 from utils.neo4j import get_neo4j_import_dir
 
@@ -34,40 +34,6 @@ def list_available_files() -> dict:
                  if x.is_file()]
 
     return {"status": "success", ALL_AVAILABLE_FILES: file_names}
-
-@tool(description="这是一个简单的文件读取工具，仅适用于导入目录中的文件")
-def sample_file(file_path: str) -> dict:
-
-    """
-    通过读取文件内容作为文本来对文件进行采样。将任何文件视为文本，并最多读取100行。
-        Args:
-            file_path: 要采样的文件，相对于导入目录的路径返回值
-        Returns:
-            dict: 一个包含内容元数据的字典，以及文件的采样。包含一个 'status' 键（'success' 或 'error'）。
-                如果 'success'，包含一个 'content' 键，存储文本文件内容。
-                如果 'error'，包含一个 'error_message' 键。
-                'error_message' 可能包含有关如何处理错误的说明。
-    """
-    # Trust, but verify. The agent may invent absolute file paths.
-    if Path(file_path).is_absolute():
-        return {"status": "error", "error_message": "File path must be relative to import directory"}
-    import_dir = Path(get_neo4j_import_dir())
-    # create the full path by extending from the import_dir
-    full_path_to_file = import_dir / file_path
-
-    # of course, _that_ may not exist
-    if not full_path_to_file.exists():
-        return {"status": "error", "error_message": f"File {file_path} does not exist"}
-    try:
-        # Treat all files as text
-        with open(full_path_to_file, 'r', encoding='utf-8') as file:
-            # Read up to 100 lines
-            lines = list(islice(file, 100))
-            content = ''.join(lines)
-            return {"status": "success", "content": content}
-
-    except Exception as e:
-        return {"status": "error", "error_message": str(e)}
 
 
 # Tool: Set/Get suggested files
@@ -128,6 +94,18 @@ def approve_suggested_files() -> dict:
 
     _file_suggestion_state[APPROVED_FILES] = _file_suggestion_state[SUGGESTED_FILES]
     return {"status": "success", APPROVED_FILES: _file_suggestion_state[APPROVED_FILES]}
+
+@tool(description="获取已批准的文件列表")
+def get_approved_files() -> list[str]:
+    """
+    获取已批准的文件列表。
+    Returns:
+        list[str]: 已批准的文件列表。
+    """
+    if APPROVED_FILES not in _file_suggestion_state:
+        return []
+    return _file_suggestion_state[APPROVED_FILES]
+
 
 
 tools = [get_approved_user_goal, list_available_files, sample_file,

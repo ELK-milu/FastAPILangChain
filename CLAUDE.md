@@ -26,11 +26,8 @@ http://127.0.0.1:8000/test-agent
 
 ### 运行独立 Agent 示例
 ```bash
-# 运行知识图谱 Agent 测试
-python test_knowledge_graph_agent.py
-
-# 运行其他 Agent 示例（在 Agents/ 目录中）
-python -m Agents.UserIntentAgent.Agent
+# 运行测试
+E:\miniconda\envs\langchain\python.exe C:\Users\26366\AppData\Roaming\JetBrains\PyCharm2025.2\plugins\ai-debugger/python/ai_profiler.py --server 56619 --script E:\PythonWorks\FastAPILangChain\Agents\KnowledgeGraphAgent\StructuredDataAgent\SchemaProposalAgent\SchemaProposalAgent.py -- 
 ```
 
 ## Architecture Overview
