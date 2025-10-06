@@ -39,7 +39,7 @@ def create_tool_node(tools):
     :param tools: 工具列表
     """
     tools_by_name = {tool.name: tool for tool in tools}
-    def tool_node(state: AgentState):
+    def tool_node(state):
         outputs = []
         for tool_call in state["messages"][-1].tool_calls:
             tool_result = tools_by_name[tool_call["name"]].invoke(tool_call["args"])

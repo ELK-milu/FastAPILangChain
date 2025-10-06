@@ -129,7 +129,7 @@ def get_well_known_types(state: UnstructuredDataAgentState = None) -> dict:
 
 
 tools = [get_approved_user_goal, get_approved_files, get_well_known_types,
-         sample_file, set_proposed_entities, get_proposed_entities,
+         sample_file,  get_proposed_entities,
          approve_proposed_entities, get_approved_entities]
 
 chat_model = DeepSeek_V3.bind_tools(
