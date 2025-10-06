@@ -85,7 +85,7 @@ def approve_proposed_facts(state) -> dict:
 
 tools = [
     get_approved_user_goal, get_approved_files,
-    #get_approved_entities,
+    get_approved_entities,
     sample_file,
     add_proposed_fact,
     get_proposed_facts,
