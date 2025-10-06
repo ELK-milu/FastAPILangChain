@@ -11,7 +11,11 @@
       "Bash(/e/miniconda/envs/langchain/python.exe -c \"from utils.langgraph.ChatNode import create_chat_node; import inspect; print(inspect.getsource(create_chat_node))\")",
       "Bash(find:*)",
       "Bash(/e/miniconda/envs/langchain/python.exe test_agentstate_inherit.py)",
-      "Bash(/e/miniconda/envs/langchain/python.exe test_schema_proposal_simple.py)"
+      "Bash(/e/miniconda/envs/langchain/python.exe test_schema_proposal_simple.py)",
+      "Bash(/e/miniconda/envs/langchain/python.exe -m pip install langchain-core langchain-neo4j)",
+      "Bash(/e/miniconda/envs/langchain/python.exe \"Agents\\KnowledgeGraphAgent\\KnowledgeGraphAgent.py\")",
+      "Bash(/e/miniconda/envs/langchain/python.exe test_neo4j_connection.py)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

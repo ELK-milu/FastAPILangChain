@@ -1,33 +1,3 @@
-# 链接 neo4j 账号密码
-import sys
-
-from langchain_neo4j import Neo4jGraph
-
-
-
-username = "neo4j"
-password = "baidu123"
-url = "bolt://localhost:7687"
-
-try:
-    graphdb = Neo4jGraph(
-        url=url,
-        username=username,
-        password=password,
-        refresh_schema=False,  # 跳过 APOC 验证
-        driver_config={"connection_timeout": 5.0}  # 5秒连接超时
-    )
-    print("[成功] 已连接到 Neo4j")
-except Exception as e:
-    print(f"[失败] Neo4j 连接失败: {type(e).__name__}: {e}")
-    print("\n请确保:")
-    print("  1. Neo4j 服务正在运行")
-    print("  2. 连接地址正确: bolt://localhost:7687")
-    print("  3. 用户名和密码正确")
-    print(f"\n提示: 检查端口是否开放: netstat -an | grep 7687")
-    sys.exit(1)
-
-
 # the approved construction plan should look something like this...
 approved_construction_plan = {
     "Assembly": {
@@ -90,15 +60,3 @@ approved_construction_plan = {
     }
 }
 
-approved_files = [
-    "product_reviews/gothenburg_table_reviews.md",
-    "product_reviews/helsingborg_dresser_reviews.md",
-    "product_reviews/jonkoping_coffee_table_reviews.md",
-    "product_reviews/linkoping_bed_reviews.md",
-    "product_reviews/malmo_desk_reviews.md",
-    "product_reviews/norrkoping_nightstand_reviews.md",
-    "product_reviews/orebro_lamp_reviews.md",
-    "product_reviews/stockholm_chair_reviews.md",
-    "product_reviews/uppsala_sofa_reviews.md",
-    "product_reviews/vasteras_bookshelf_reviews.md"
-]
