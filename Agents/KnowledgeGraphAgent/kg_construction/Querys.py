@@ -4,7 +4,8 @@ from Agents.KnowledgeGraphAgent import graphdb
 
 
 def test_match_query():
-    # first, take a look at the entity labels
+    """测试查询：查看所有实体节点的标签"""
+    # 首先，查看实体标签
     results = graphdb.query("""MATCH (n)
         WHERE n:`__Entity__`
         RETURN DISTINCT labels(n) AS entity_labels
@@ -14,7 +15,8 @@ def test_match_query():
 
 
 def test_unwind_labels():
-    # unwind those lists of labels
+    """测试查询：展开标签列表为单个标签"""
+    # 展开标签列表
     results = graphdb.query("""MATCH (n)
         WHERE n:`__Entity__`
         WITH DISTINCT labels(n) AS entity_labels
@@ -25,7 +27,8 @@ def test_unwind_labels():
     print(results['query_result'])
 
 def test_filter_labels():
-    # filter out labels that start with "__"
+    """测试查询：过滤掉以"__"开头的内部标签"""
+    # 过滤掉以 "__" 开头的标签
     results = graphdb.query("""MATCH (n)
         WHERE n:`__Entity__`
         WITH DISTINCT labels(n) AS entity_labels
@@ -37,8 +40,13 @@ def test_filter_labels():
 
     print(results['query_result'])
 
-# wrap the query into a callable function
+# 将查询封装为可调用函数
 def find_unique_entity_labels():
+    """查找主体图中所有唯一的实体标签，排除内部 Neo4j 系统标签
+
+    Returns:
+        list[str]: 唯一实体标签列表
+    """
     result = graphdb.query("""MATCH (n)
         WHERE n:`__Entity__`
         WITH DISTINCT labels(n) AS entity_labels
@@ -55,6 +63,14 @@ def find_unique_entity_labels():
 
 
 def find_unique_entity_keys(entityLabel: str):
+    """查找指定实体标签的所有唯一属性键
+
+    Args:
+        entityLabel (str): 实体标签名称
+
+    Returns:
+        list[str]: 该实体的所有唯一属性键列表
+    """
     result = graphdb.query("""MATCH (n:$($entityLabel))
     WHERE n:`__Entity__`
     WITH DISTINCT keys(n) as entityKeys
@@ -70,8 +86,16 @@ def find_unique_entity_keys(entityLabel: str):
 
 
 def find_unique_domain_keys(domainLabel: str):
+    """查找指定域标签的所有唯一属性键（排除实体节点）
+
+    Args:
+        domainLabel (str): 域标签名称
+
+    Returns:
+        list[str]: 该域节点的所有唯一属性键列表
+    """
     result = graphdb.query("""MATCH (n:$($domainLabel))
-    WHERE NOT n:`__Entity__` // exclude entities created by the KG builder, these should be domain nodes
+    WHERE NOT n:`__Entity__` // 排除 KG builder 创建的实体节点，这些应该是域节点
     WITH DISTINCT keys(n) as domainKeys
     UNWIND domainKeys as domainKey
     RETURN collect(distinct(domainKey)) as unique_domain_keys
@@ -86,25 +110,25 @@ def find_unique_domain_keys(domainLabel: str):
 
 
 def normalize_key(label:str, key:str) -> str:
-    """Normalizes a a property key for a given label.
+    """标准化给定标签的属性键
 
-    Keys are normalized by:
-    - lowercase the key
-    - remove any leading/trailing whitespace
-    - remove label prefix from key
-    - replace internal whitespace with "_"
+    标准化规则：
+    - 将键转换为小写
+    - 移除前后空格
+    - 移除标签前缀
+    - 将内部空格替换为下划线
 
-    for example:
+    示例：
         - "Product_name" -> "name"
         - "product name" -> "name"
-        - "price" -> "price
+        - "price" -> "price"
 
     Args:
-        label (str): The label to normalize keys for
-        keys (List[str]): The list of keys to normalize
+        label (str): 需要标准化键的标签
+        key (str): 需要标准化的属性键
 
     Returns:
-        List[str]: The normalized list of keys
+        str: 标准化后的属性键
     """
     lowercase_key = key.lower()
     unprefixed_key = re.sub(f"^{label.lower()}[_ ]*", "", lowercase_key)
@@ -150,24 +174,6 @@ def find_similar_entity_values(entityLabel: str, entityKey: str, domainLabel: st
 
     print(results['query_result'])
 
-
-def find_similar_entity_values(entityLabel: str, entityKey: str, domainLabel: str, domainKey: str):
-    # connect all corresponding nodes with a relationship
-    results = graphdb.query("""
-    MATCH (entity:$($entityLabel):`__Entity__`),(domain:$($entityLabel))
-    // use the score as a predicate to filter the pairs. this is better
-    WHERE apoc.text.jaroWinklerDistance(entity[$entityKey], domain[$domainKey]) < 0.1
-    MERGE (entity)-[r:CORRESPONDS_TO]->(domain)
-    ON CREATE SET r.created_at = datetime()
-    ON MATCH SET r.updated_at = datetime()
-    RETURN elementId(entity) as entity_id, r, elementId(domain) as domain_id
-    """, {
-        "entityLabel": "Product",
-        "entityKey": "name",
-        "domainKey": "product_name"
-    })
-
-    print(results['query_result'])
 
     # run this repeatedly to illustrate that MERGE only happens once
 
